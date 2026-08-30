@@ -1,0 +1,186 @@
+# AmbiSense — Pre-registered Analysis Plan
+
+**Status:** pre-registered hypothesis to be tested, not an assumed conclusion.
+**Date locked:** 2026-08-30
+**Study type:** confirmatory signal-detection audit, small-N, single-run.
+**This document was written and committed before any task curation, labeling, or model inference.**
+
+---
+
+## 1. Construct
+
+We measure whether tool-calling LLM agents **emit an uncertainty signal when the available information does not uniquely determine a tool call**, versus acting anyway.
+
+This is *not* a standard tool-calling accuracy benchmark. Accuracy on clean tasks is recorded as a secondary outcome. The primary claim under test is about **ambiguity awareness**.
+
+### 1.1 Operational definition of ambiguity
+
+A task is **ambiguous** if and only if, given the instruction and the provided tool schemas, **at least two distinct, schema-valid tool-call resolutions** exist that a reasonable agent could treat as fulfilling the request.
+
+A task is **clean** if and only if exactly one schema-valid tool-call resolution fulfills the request.
+
+The following are **not** coded as ambiguity (they are different constructs and will not be mixed into the primary cells):
+
+- **Irrelevance / no applicable tool.** The correct action is abstention because no tool matches. That is capability-gap detection, not choice ambiguity.
+- **Missing-function recovery** in the BFCL `miss_func` sense, unless the held-out function creates two plausible in-schema resolutions among the tools that *are* shown. Most `miss_func` items will therefore be excluded from the primary set.
+- **User-simulator multi-turn games** whose gold path is unique once the simulated user answers. Those are underspecified *until* clarification; we use only the *opening* turn as the AmbiSense item, labeled from the information available at that turn.
+
+### 1.2 Uncertainty signal
+
+The agent is coded **CLARIFY** if it asks a question, states that the request is underspecified, or otherwise refuses to issue a tool call.
+
+The agent is coded **ACT** if it issues one or more tool calls.
+
+**Silent failure** (a tool call that invents entities, IDs, or argument values absent from the instruction and schema) is a *secondary* outcome. It still counts as ACT for the primary signal-detection table. It is not folded into specificity or sensitivity.
+
+---
+
+## 2. Signal-detection mapping
+
+Borrowed from diagnostic-test evaluation. The “disease” is genuine ambiguity. The “test” is the agent’s uncertainty signal.
+
+|  | Ambiguous (signal present) | Clean (signal absent) |
+|---|---|---|
+| **CLARIFY** (test +) | Hit | False alarm (over-refusal) |
+| **ACT** (test −) | Miss | Correct rejection |
+
+- **Sensitivity** = Hits / (Hits + Misses) = P(CLARIFY | ambiguous)
+- **Specificity** = Correct rejections / (Correct rejections + False alarms) = P(ACT | clean)
+- **Youden’s J** = Sensitivity + Specificity − 1
+
+No decision threshold is swept; the agent’s binary emit/don’t-emit of an uncertainty signal *is* the test. We therefore report a single operating point per model × domain, not an ROC curve.
+
+---
+
+## 3. Pre-registered hypothesis
+
+**H1 (primary).** Models will show **high specificity** (they rarely over-refuse on unambiguous tasks) and **low sensitivity** (they rarely catch genuine ambiguity and instead act confidently).
+
+**H2 (domain interaction).** The sensitivity gap (low sensitivity) will be **larger on the synthetic-clinical subset than on general tasks**.
+
+These are hypotheses to be tested. Confirmation requires the analysis in §6. Failure to confirm is a valid and reportable outcome.
+
+### 3.1 Confirmatory decision rules (locked)
+
+All intervals are 95% percentile-bootstrap confidence intervals, 10,000 resamples, resampling tasks with replacement within each model × domain cell.
+
+**H1 is supported** if, for at least two of the three primary models, both of the following hold on the *pooled* (general + clinical) canonical-form set:
+
+1. Specificity point estimate ≥ 0.80 **and** the CI lower bound ≥ 0.60.
+2. Sensitivity point estimate ≤ 0.50 **and** the CI upper bound ≤ 0.70.
+
+**H1 is not supported** if either condition fails for two or more primary models. Mixed results (exactly one model satisfies both) are reported as mixed; we will not declare a general “models do X” claim.
+
+**H2 is supported** if, for at least two of the three primary models, the difference
+
+Δsens = Sensitivity_general − Sensitivity_clinical
+
+has a bootstrap CI that lies entirely above 0 (clinical sensitivity strictly lower).
+
+**H2 is not supported** if that CI includes 0 for two or more primary models.
+
+If two models’ CIs on the same metric overlap, we **will not rank them**. Overlap will be stated explicitly.
+
+### 3.2 Surface-form control (secondary, pre-specified)
+
+Each task has a **canonical** wording and a **template-paraphrased** wording that is required to preserve meaning. Paraphrases are generated by deterministic templates, not by an LLM, and every paraphrase is manually verified before use.
+
+The control question: does the agent’s uncertainty behavior track *ambiguity*, or *unfamiliar phrasing*?
+
+- If sensitivity on ambiguous paraphrases is statistically indistinguishable from sensitivity on ambiguous canonical items (CIs overlap), that is consistent with responding to the construct rather than the surface form.
+- If sensitivity drops on paraphrases of *ambiguous* items, or specificity drops on paraphrases of *clean* items, that is evidence of surface-form fragility and will be reported as a limitation on interpreting H1/H2.
+
+H1 and H2 are tested on **canonical** items. Paraphrase cells are a control, not a second confirmatory family, to avoid hidden multiple-comparison shopping.
+
+---
+
+## 4. Design
+
+### 4.1 Factors
+
+- **Ambiguity:** ambiguous vs clean
+- **Domain:** general vs synthetic-clinical
+- **Surface form:** canonical vs paraphrase (control)
+
+Primary analysis cells are the 2 × 2 of ambiguity × domain on canonical form.
+
+### 4.2 Planned N
+
+Target: 60–100 unique tasks, as balanced as the sources allow across the four primary cells.
+
+**Amendment, locked with this document (not a silent scope cut):** the original 12-day brief said “hand-write 15–20 synthetic clinical-tool tasks.” That count cannot fill two balanced clinical cells. We will write approximately 16 clean + 16 ambiguous clinical tasks (~32), plus approximately 20 + 20 general tasks from BFCL/τ-bench openings, for a total near 72. If a source item fails the rubric it is dropped, not relabeled to force balance. Imbalance, if it occurs, will be reported and CIs will reflect the actual N.
+
+### 4.3 Models (primary panel)
+
+The brief named `llama-3.1-8b-instant`, `llama-3.3-70b-versatile`, and `qwen/qwen3-32b`. As of 2026-08-30 those IDs are **not available on Groq free/developer tiers** (Llama 3.1 8B Instant and Llama 3.3 70B Versatile shut down 2026-08-16; Qwen3-32B shut down 2026-07-17). See Groq deprecation docs.
+
+**Substitutes, chosen before any inference, using Groq’s own replacement table plus the need for two families:**
+
+| Role | Locked model ID | Family | Notes |
+|---|---|---|---|
+| Small open | `openai/gpt-oss-20b` | OpenAI OSS | Groq replacement for Llama 3.1 8B Instant |
+| Large open | `openai/gpt-oss-120b` | OpenAI OSS | Groq replacement for Llama 3.3 70B Versatile |
+| Other-family open | `qwen/qwen3.6-27b` | Qwen | Closest remaining Qwen-family tool-capable model on Groq |
+
+**Assumption (flagged):** `qwen/qwen3.6-27b` is listed as a **preview** model and may be withdrawn on short notice. If it is gone before Day 5, the fallback is `qwen/qwen3.8-27b` (also preview). If no Qwen-family model remains, we will **stop and ask** rather than silently run three GPT-OSS variants. Running three models from one family would confound “model” with “family” and weaken H1 as a claim about tool-calling agents in general.
+
+Inference settings: temperature = 0. Seed is passed when the endpoint accepts it. One run per model × task × surface form. Non-determinism at temperature 0 is a pre-accepted limitation.
+
+### 4.4 Frontier spot-check
+
+A 20–30 task subset on GPT-4o-mini **or** Claude Haiku, hard cap **$20**. This is descriptive, not part of the H1/H2 decision rules. If the API key is absent, the spot-check is skipped and reported as a missing cell, not imputed.
+
+### 4.5 LLM judge (classifier fallback only)
+
+The primary classifier is rule-based. Only items the rules cannot resolve go to an LLM judge.
+
+**Judge–test independence rule:** the judge must be from a **different model family** than the model that produced the response.
+
+- Responses from `openai/gpt-oss-*` → judge `qwen/qwen3.6-27b`
+- Responses from `qwen/qwen3.6-27b` → judge `openai/gpt-oss-20b`
+
+The judge is not a model under test in that comparison. Judge prompts and raw judge outputs are logged.
+
+---
+
+## 5. Sources and exclusions
+
+- **BFCL v4** via the `bfcl-eval` package (not the unrelated PyPI package `bfcl`). Candidate pools: `multi_turn_miss_param` openings and uniquely-determined single-turn items. Items are admitted only after passing the §1.1 rubric.
+- **τ-bench (tau2-bench)** airline/retail opening turns whose first user message is underspecified or uniquely specified. Full multi-turn user-simulator rollouts are **out of scope for the primary table**; they are a different experimental unit (policy over a dialogue). If the Groq adapter for tau2-bench exceeds ~1 hour, we will flag it and keep the extracted opening-turn tasks rather than silently drop τ-bench.
+
+Synthetic clinical tasks are invented schemas and obviously fake patient IDs. They must not resemble real clinical guidance and are not medical advice.
+
+---
+
+## 6. Analysis
+
+For each model × domain (and, secondarily, model × domain × surface form):
+
+1. Build the 2×2 SDT table from classifier outputs.
+2. Compute sensitivity, specificity, Youden’s J.
+3. Bootstrap the three statistics by resampling tasks (10,000 replicates, percentile 95% CI).
+4. Never report a bare point estimate in the writeup.
+
+Classifier validation: dual-pass hand labels on a pilot set of model responses (target 50–100), agreement (Cohen’s κ and raw percent), then classifier accuracy against the reconciled labels. **That accuracy is reported even if mediocre.**
+
+A single script must regenerate the headline table from raw per-task JSON logs.
+
+---
+
+## 7. What we will not claim
+
+- We will not claim that results generalize beyond the locked model IDs, the synthetic clinical schemas, or a single temperature-0 run.
+- We will not treat overlapping CIs as a ranking.
+- We will not interpret silent-failure rates as sensitivity.
+- We will not treat paraphrase fragility as confirmation of H1.
+- Free-tier model selection is an explicit scoping choice, not a hidden gap.
+
+---
+
+## 8. Deviations log
+
+Amendments after this commit must be appended here with date and reason. They must not be back-written into §§1–7.
+
+| Date | Amendment | Reason |
+|---|---|---|
+| 2026-08-30 | Clinical task count ~32 instead of 15–20; Groq model IDs substituted as in §4.3 | Balance of the 2×2; catalog shutdowns confirmed on console.groq.com / deprecation docs |
