@@ -184,3 +184,4 @@ Amendments after this commit must be appended here with date and reason. They mu
 | Date | Amendment | Reason |
 |---|---|---|
 | 2026-08-30 | Clinical task count ~32 instead of 15–20; Groq model IDs substituted as in §4.3 | Balance of the 2×2; catalog shutdowns confirmed on console.groq.com / deprecation docs |
+| 2026-08-30 | Paraphraser sentence split: only period+space, not every `.` | Naive split smashed `@jordan.lee` and `.pdf` and would have broken the control. Caught in manual review before any inference. |
