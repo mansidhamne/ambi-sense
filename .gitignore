@@ -1,0 +1,36 @@
+# Secrets
+.env
+.env.local
+*.pem
+
+# Python
+.venv/
+.venv-bfcl/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+
+# BFCL / tau2 local clones and caches
+third_party/
+.bfcl/
+bfcl_results/
+$BFCL_PROJECT_ROOT/
+
+# Experiment outputs (raw logs are tracked under data/logs only when curated)
+*.pkl
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# uv / pip
+uv.lock
+!requirements.lock.txt
